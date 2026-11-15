@@ -1,0 +1,35 @@
+"""Settings. Everything has a safe default so the API runs with NO configuration.
+
+Nothing here touches Supabase. When you connect Supabase later, add its settings here.
+"""
+import os
+import secrets
+from datetime import date, datetime, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover
+    ZoneInfo = None
+
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if o.strip()
+]
+
+# Used to sign login tokens. Without JWT_SECRET a random one is made at start-up,
+# which simply means everyone is logged out whenever the server restarts.
+JWT_SECRET = os.getenv("JWT_SECRET") or secrets.token_urlsafe(48)
+TOKEN_MINUTES = int(os.getenv("TOKEN_MINUTES", "480"))
+
+MAX_RENTAL_DAYS = int(os.getenv("MAX_RENTAL_DAYS", "90"))
+BUSINESS_TIMEZONE = os.getenv("BUSINESS_TIMEZONE", "UTC")
+
+
+def today() -> date:
+    """Today's date in the business time zone."""
+    try:
+        tz = ZoneInfo(BUSINESS_TIMEZONE) if ZoneInfo else timezone.utc
+    except Exception:  # unknown zone name, or tzdata not installed
+        tz = timezone.utc
+    return datetime.now(tz).date()
