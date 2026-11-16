@@ -31,3 +31,20 @@ alter table public.contact_messages enable row level security;
 
 -- Note: the website uses its own email + password login (users table above).
 -- If you prefer Supabase Auth instead, replace app/security.py and the /api/auth routes.
+
+-- The owner's email becomes an admin automatically when it registers. Everyone else is a customer.
+create or replace function public.make_owner_admin()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.email = 'gullsafs@gmail.com' then
+    new.role := 'admin';
+  end if;
+  return new;
+end $$;
+
+revoke execute on function public.make_owner_admin() from public, anon, authenticated;
+
+drop trigger if exists users_make_owner_admin on public.users;
+create trigger users_make_owner_admin
+  before insert on public.users
+  for each row execute function public.make_owner_admin();
