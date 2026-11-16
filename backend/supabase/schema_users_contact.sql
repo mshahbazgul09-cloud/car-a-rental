@@ -1,5 +1,4 @@
--- FOR LATER. Not used by the mock-data API and not connected to anything.
--- When you connect Supabase: run schema.sql first, then this file in the SQL Editor.
+-- ALREADY APPLIED to the Supabase project 'car-a-rental'. Run after schema.sql when rebuilding.
 -- It adds what the login and contact features need.
 
 create table if not exists public.users (

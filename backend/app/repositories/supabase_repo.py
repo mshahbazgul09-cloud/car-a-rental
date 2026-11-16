@@ -1,64 +1,128 @@
-"""FUTURE Supabase implementation. NOT connected and NOT used yet.
+"""Supabase implementation of the Repository contract (see base.py for the data shapes).
 
-This file has no imports from supabase, reads no credentials and opens no connection.
-It marks exactly where your database code goes.
-
-To connect later:
-  1. Run backend/supabase/schema.sql, then backend/supabase/schema_users_contact.sql.
-  2. Add your Supabase settings (URL + service-role key) to app/config.py / your .env.
-  3. Fill in each method below. backend/main.py (the older version) already contains working
-     Supabase calls for cars, availability and bookings that you can copy from.
-  4. In app/dependencies.py, return SupabaseRepository(...) from get_repository().
-Return the same dict shapes documented in base.py.
+Used automatically when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in backend/.env
+(see app/dependencies.py). The service-role key bypasses RLS, so it must stay on the server.
 """
-from datetime import date
+from datetime import date, datetime
 
+from postgrest.exceptions import APIError
+
+from ..errors import Conflict
 from .base import Repository
 
-_TODO = "Supabase is not connected yet. Implement this method (see the notes at the top of this file)."
+_DATE_FIELDS = ("pickup_date", "return_date")
+_MONEY_FIELDS = ("price_per_day", "total_price")
+
+
+def _row(r: dict | None) -> dict | None:
+    """Convert Supabase JSON (strings) back to the Python types the services expect."""
+    if r is None:
+        return None
+    r = dict(r)
+    for k in _DATE_FIELDS:
+        if isinstance(r.get(k), str):
+            r[k] = date.fromisoformat(r[k])
+    for k in _MONEY_FIELDS:
+        if r.get(k) is not None:
+            r[k] = float(r[k])
+    if isinstance(r.get("created_at"), str):
+        r["created_at"] = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+    return r
+
+
+def _first(res) -> dict | None:
+    return _row(res.data[0]) if res.data else None
 
 
 class SupabaseRepository(Repository):
-    def __init__(self, client=None):
-        # FUTURE: self.db = client   (a supabase.Client created with your own credentials)
+    def __init__(self, client):
         self.db = client
 
-    # cars table: select * where active = true
+    # ---- cars
     def list_cars(self, only_active: bool = True) -> list[dict]:
-        raise NotImplementedError(_TODO)
+        q = self.db.table("cars").select("*").order("id")
+        if only_active:
+            q = q.eq("active", True)
+        return [_row(r) for r in q.execute().data]
 
     def get_car(self, car_id: str) -> dict | None:
-        raise NotImplementedError(_TODO)
+        return _first(self.db.table("cars").select("*").eq("id", car_id).limit(1).execute())
 
-    # users table (see schema_users_contact.sql)
+    # ---- users
     def get_user(self, user_id: str) -> dict | None:
-        raise NotImplementedError(_TODO)
+        return _first(self.db.table("users").select("*").eq("id", user_id).limit(1).execute())
 
     def get_user_by_email(self, email: str) -> dict | None:
-        raise NotImplementedError(_TODO)
+        return _first(self.db.table("users").select("*").eq("email", email.lower()).limit(1).execute())
 
     def create_user(self, data: dict) -> dict:
-        raise NotImplementedError(_TODO)  # map unique-violation (23505) to Conflict(field="email")
+        row = {**data, "email": data["email"].lower(), "role": data.get("role", "customer")}
+        try:
+            return _first(self.db.table("users").insert(row).execute())
+        except APIError as e:
+            if e.code == "23505":
+                raise Conflict("An account with this email already exists.", field="email")
+            raise
 
-    # bookings table
+    # ---- bookings
     def create_booking(self, data: dict) -> dict:
-        raise NotImplementedError(_TODO)
+        row = {
+            "car_id": data["car_id"],
+            "user_id": data.get("user_id"),
+            "customer_name": data["customer_name"],
+            "phone": data["phone"],
+            "pickup_location": data["pickup_location"],
+            "pickup_date": data["pickup_date"].isoformat(),
+            "return_date": data["return_date"].isoformat(),
+            "price_per_day": float(data["price_per_day"]),
+            "total_price": float(data["total_price"]),
+            "status": "pending",
+        }
+        return _first(self.db.table("bookings").insert(row).execute())
 
     def get_booking(self, booking_id: str) -> dict | None:
-        raise NotImplementedError(_TODO)
+        try:
+            return _first(self.db.table("bookings").select("*").eq("id", booking_id).limit(1).execute())
+        except APIError as e:
+            if e.code == "22P02":  # not a valid uuid -> simply not found
+                return None
+            raise
 
     def list_bookings(self, user_id: str | None = None, status: str | None = None) -> list[dict]:
-        raise NotImplementedError(_TODO)
+        q = self.db.table("bookings").select("*").order("created_at", desc=True)
+        if user_id is not None:
+            q = q.eq("user_id", user_id)
+        if status is not None:
+            q = q.eq("status", status)
+        return [_row(r) for r in q.execute().data]
 
     def list_confirmed_ranges(self, car_id: str, from_date: date) -> list[dict]:
-        raise NotImplementedError(_TODO)
+        res = (
+            self.db.table("bookings").select("pickup_date,return_date")
+            .eq("car_id", car_id).eq("status", "confirmed").gte("return_date", from_date.isoformat())
+            .order("pickup_date").execute()
+        )
+        return [_row(r) for r in res.data]
 
     def has_confirmed_overlap(self, car_id: str, pickup: date, ret: date, exclude_id: str | None = None) -> bool:
-        raise NotImplementedError(_TODO)  # .lt("pickup_date", ret).gt("return_date", pickup)
+        q = (
+            self.db.table("bookings").select("id")
+            .eq("car_id", car_id).eq("status", "confirmed")
+            .lt("pickup_date", ret.isoformat()).gt("return_date", pickup.isoformat())
+        )
+        if exclude_id:
+            q = q.neq("id", exclude_id)
+        return bool(q.limit(1).execute().data)
 
     def update_booking_status(self, booking_id: str, status: str) -> dict:
-        raise NotImplementedError(_TODO)  # catch error code 23P01 -> raise Conflict(...)
+        # Atomic: the database's exclusion constraint rejects overlapping confirmed bookings.
+        try:
+            return _first(self.db.table("bookings").update({"status": status}).eq("id", booking_id).execute())
+        except APIError as e:
+            if e.code == "23P01":
+                raise Conflict("Cannot confirm: it overlaps another confirmed booking for this car.")
+            raise
 
-    # contact_messages table
+    # ---- contact form
     def create_contact_message(self, data: dict) -> dict:
-        raise NotImplementedError(_TODO)
+        return _first(self.db.table("contact_messages").insert(dict(data)).execute())

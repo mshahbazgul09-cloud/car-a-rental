@@ -1,10 +1,21 @@
-"""Settings. Everything has a safe default so the API runs with NO configuration.
+"""Settings, read from backend/.env (see .env.example).
 
-Nothing here touches Supabase. When you connect Supabase later, add its settings here.
+With no SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY the API runs on temporary mock data.
 """
 import os
 import secrets
 from datetime import date, datetime, timezone
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:  # pragma: no cover
+    pass
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()  # server-side only
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
 
 try:
     from zoneinfo import ZoneInfo

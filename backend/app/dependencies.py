@@ -16,13 +16,13 @@ bearer = HTTPBearer(auto_error=False)
 
 @lru_cache
 def get_repository() -> Repository:
-    """THE switch between mock data and the real database.
+    """THE switch between mock data and the real database: Supabase when its keys are in .env."""
+    if config.USE_SUPABASE:
+        from supabase import create_client
 
-    Today: temporary in-memory data.
-    Later (after you connect Supabase yourself):
         from .repositories.supabase_repo import SupabaseRepository
-        return SupabaseRepository(your_supabase_client)
-    """
+
+        return SupabaseRepository(create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY))
     return MemoryRepository()
 
 

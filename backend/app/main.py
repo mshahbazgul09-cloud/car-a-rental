@@ -41,7 +41,7 @@ async def not_implemented_handler(_: Request, exc: NotImplementedError):
 
 @app.get("/api/health", tags=["health"])
 def health():
-    return {"ok": True, "data": "mock"}
+    return {"ok": True, "data": "supabase" if config.USE_SUPABASE else "mock"}
 
 
 for module in (auth, cars, bookings, admin, contact):

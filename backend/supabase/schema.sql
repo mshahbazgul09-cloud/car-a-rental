@@ -1,23 +1,32 @@
--- Run this once in the Supabase SQL Editor (Project -> SQL Editor -> New query).
+-- ALREADY APPLIED to the Supabase project 'car-a-rental' (with schema_users_contact.sql).
+-- Kept so the database can be rebuilt: run this, then schema_users_contact.sql, in the SQL Editor.
 -- Creates the cars + bookings tables and a database-level rule that makes it
 -- impossible to have two CONFIRMED bookings for the same car on overlapping dates.
 
-create extension if not exists btree_gist;
+create extension if not exists btree_gist with schema extensions;
 
 -- ---------- Cars ----------
 create table if not exists public.cars (
   id            text primary key,                      -- must match the ids in src/data/cars.js
   name          text not null,
   model         text not null,
+  category      text not null default 'Standard',
+  year          integer not null,
+  seats         integer not null check (seats > 0),
+  transmission  text not null,
+  fuel          text not null,
   price_per_day numeric(10,2) not null check (price_per_day > 0),
+  image         text not null default '',               -- e.g. /images/cars/your-car.png
+  description   text not null default '',
+  features      text[] not null default '{}',
   active        boolean not null default true
 );
 
 -- SAMPLE rows matching src/data/cars.js. Edit names/prices to your real fleet.
-insert into public.cars (id, name, model, price_per_day) values
-  ('car-1', 'Mercedes-Benz', 'S-Class',   250),
-  ('car-2', 'Audi',          'e-tron GT',  260),
-  ('car-3', 'Mercedes-Benz', 'EQS',        280)
+insert into public.cars (id, name, model, category, year, seats, transmission, fuel, price_per_day, image, description, features) values
+  ('car-1','Mercedes-Benz','S-Class','Luxury',2024,5,'Automatic','Petrol',250,'/images/cars/mercedes-s-class.png','Flagship comfort with a hand-finished interior and effortless power.', array['Leather seats','Panoramic roof','Massage seats','Premium sound']),
+  ('car-2','Audi','e-tron GT','Electric',2024,5,'Automatic','Electric',260,'/images/cars/audi-e-tron-gt.png','A silent electric grand tourer with supercar pace and striking lines.', array['Fast charging','Matrix LED lights','Virtual cockpit','Premium sound']),
+  ('car-3','Mercedes-Benz','EQS','Electric',2024,5,'Automatic','Electric',280,'/images/cars/mercedes-eqs.png','Electric luxury with a calm, spacious cabin and a long range.', array['Long range','Air suspension','Hyperscreen','Heated seats'])
 on conflict (id) do nothing;
 
 -- ---------- Bookings ----------
