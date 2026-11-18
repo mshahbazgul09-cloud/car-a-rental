@@ -35,7 +35,7 @@ TOKEN_MINUTES = int(os.getenv("TOKEN_MINUTES", "480"))
 
 MAX_RENTAL_DAYS = int(os.getenv("MAX_RENTAL_DAYS", "90"))
 
-# These emails become admins when they register. Comma-separated.
+# Emails that become admins when they register (comma-separated).
 ADMIN_EMAILS = {
     e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "gullsafs@gmail.com").split(",") if e.strip()
 }
