@@ -4,7 +4,8 @@ import Container from "../components/ui/Container.jsx";
 import Button from "../components/ui/Button.jsx";
 import PageHeader from "../components/ui/PageHeader.jsx";
 import StatusBadge from "../components/ui/StatusBadge.jsx";
-import { adminGetBookings, adminUpdateBooking } from "../lib/api.js";
+import AdminChat from "../components/admin/AdminChat.jsx";
+import { adminGetBookings, adminGetChats, adminUpdateBooking } from "../lib/api.js";
 import { formatDate, formatMoney } from "../utils/pricing.js";
 
 const TABS = ["all", "pending", "confirmed", "cancelled"];
@@ -14,6 +15,17 @@ export default function Admin() {
   const [tab, setTab] = useState("pending");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [view, setView] = useState("bookings"); // "bookings" | "messages"
+  const [chats, setChats] = useState(null);
+
+  // Chats are checked every 8 seconds so the "new" count stays current on both views.
+  const loadChats = useCallback(() => adminGetChats().then(setChats).catch(() => setChats((c) => c || [])), []);
+  useEffect(() => {
+    loadChats();
+    const id = setInterval(loadChats, 8000);
+    return () => clearInterval(id);
+  }, [loadChats]);
+  const newChats = (chats || []).filter((c) => c.admin_unread).length;
 
   const load = useCallback(() => {
     setError("");
@@ -57,9 +69,31 @@ export default function Admin() {
   return (
     <section className="min-h-screen bg-ink pb-24 pt-32 text-white">
       <Container>
-        <PageHeader eyebrow="Admin" title="Manage" accent="Bookings" subtitle="Confirm or cancel booking requests. A car cannot be confirmed twice for the same dates." />
+        <PageHeader eyebrow="Admin" title="Manage" accent="Bookings" subtitle="Confirm or cancel booking requests, and reply to live chat messages." />
 
-        <div className="mt-10 flex flex-wrap gap-2" role="tablist">
+        <div className="mt-10 flex gap-2 border-b border-white/10">
+          {[
+            ["bookings", "Bookings"],
+            ["messages", newChats ? `Messages (${newChats} new)` : "Messages"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              aria-pressed={view === key}
+              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                view === key ? "border-brand text-white" : "border-transparent text-white/50 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {view === "messages" ? (
+          <AdminChat chats={chats} reloadChats={loadChats} />
+        ) : (
+        <>
+        <div className="mt-8 flex flex-wrap gap-2" role="tablist">
           {TABS.map((t) => (
             <button
               key={t}
@@ -132,6 +166,8 @@ export default function Admin() {
               </tbody>
             </table>
           </div>
+        )}
+        </>
         )}
       </Container>
     </section>

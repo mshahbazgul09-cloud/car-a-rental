@@ -34,6 +34,25 @@ def validate_message(value) -> str:
     return _text(value, "Message", 10, 2000)
 
 
+def validate_chat_message(value) -> str:
+    """Chat text: 1-1000 characters. Line breaks are allowed; other control characters are not."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Message is required")
+    v = value.strip()
+    if len(v) > 1000:
+        raise ValueError("Message must be 1000 characters or fewer")
+    if re.search(r"[\x00-\x09\x0b-\x1f]", v):
+        raise ValueError("Message contains invalid characters")
+    return v
+
+
+def validate_chat_contact(value) -> str:
+    """Optional phone or email so we can reply outside the chat. Empty is fine."""
+    if value is None or not str(value).strip():
+        return ""
+    return _text(str(value), "Phone or email", 5, 120)
+
+
 def validate_phone(value) -> str:
     v = _text(value, "Phone number", 7, 20)
     digits = re.sub(r"\D", "", v)

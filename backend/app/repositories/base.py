@@ -63,3 +63,29 @@ class Repository(ABC):
     # ---- contact form
     @abstractmethod
     def create_contact_message(self, data: dict) -> dict: ...
+
+    # ---- live chat
+    # thread  {id, visitor_name, contact, user_id|None, token_hash, status('open'|'closed'),
+    #          admin_unread(bool), last_message_preview, last_message_at, created_at}
+    # message {id, thread_id, sender('visitor'|'admin'), body, created_at}
+    @abstractmethod
+    def create_chat_thread(self, data: dict) -> dict:
+        """data: visitor_name, contact, user_id, token_hash."""
+
+    @abstractmethod
+    def get_chat_thread(self, thread_id: str) -> dict | None: ...
+
+    @abstractmethod
+    def list_chat_threads(self) -> list[dict]:
+        """Most recent activity first."""
+
+    @abstractmethod
+    def update_chat_thread(self, thread_id: str, fields: dict) -> dict: ...
+
+    @abstractmethod
+    def add_chat_message(self, thread_id: str, sender: str, body: str) -> dict:
+        """Also updates the thread's last_message_preview and last_message_at."""
+
+    @abstractmethod
+    def list_chat_messages(self, thread_id: str, limit: int = 200) -> list[dict]:
+        """Oldest first, at most the last `limit` messages."""

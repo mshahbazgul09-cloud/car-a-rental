@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from . import config
 from .errors import AppError
-from .routers import admin, auth, bookings, cars, contact
+from .routers import admin, auth, bookings, cars, chat, contact
 
 app = FastAPI(title="Car Rental API (mock data)")
 
@@ -18,7 +18,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "PATCH"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Chat-Token"],
 )
 
 
@@ -44,5 +44,5 @@ def health():
     return {"ok": True, "data": "supabase" if config.USE_SUPABASE else "mock"}
 
 
-for module in (auth, cars, bookings, admin, contact):
+for module in (auth, cars, bookings, admin, contact, chat):
     app.include_router(module.router)

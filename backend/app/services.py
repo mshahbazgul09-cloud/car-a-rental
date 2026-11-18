@@ -5,6 +5,9 @@ Rules:
 - The price is always calculated here from the car's rate. The browser's number is never trusted.
 - New bookings are 'pending'. An admin confirms them. Confirmed bookings of one car cannot overlap.
 """
+import hashlib
+import hmac
+import secrets
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -130,3 +133,78 @@ def cancel_booking(repo: Repository, booking_id: str, user: dict) -> dict:
     if booking["status"] == "cancelled":
         raise Conflict("This booking is already cancelled.")
     return _with_car_name(repo, repo.update_booking_status(booking_id, "cancelled"))
+
+
+# ------------------------------------------------------------------ live chat
+# A visitor gets a secret token when they start a chat. Only its hash is stored, and the
+# token is needed to read or reply, so nobody can read another visitor's conversation.
+MAX_CHAT_MESSAGES = 300
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _visitor_chat(repo: Repository, thread: dict) -> dict:
+    return {"id": thread["id"], "status": thread["status"], "messages": repo.list_chat_messages(thread["id"])}
+
+
+def _chat_for_visitor(repo: Repository, thread_id: str, token: str | None) -> dict:
+    thread = repo.get_chat_thread(thread_id)
+    if not thread or not token or not hmac.compare_digest(thread["token_hash"], _hash_token(token)):
+        raise NotFound("Chat not found.")  # same answer for a wrong token, so ids can't be probed
+    return thread
+
+
+def start_chat(repo: Repository, *, name: str, contact: str, message: str, user_id: str | None = None) -> dict:
+    token = secrets.token_urlsafe(32)
+    thread = repo.create_chat_thread(dict(visitor_name=name, contact=contact or "", user_id=user_id,
+                                          token_hash=_hash_token(token)))
+    repo.add_chat_message(thread["id"], "visitor", message)
+    thread = repo.update_chat_thread(thread["id"], {"admin_unread": True})
+    return {**_visitor_chat(repo, thread), "token": token}
+
+
+def get_visitor_chat(repo: Repository, thread_id: str, token: str | None) -> dict:
+    return _visitor_chat(repo, _chat_for_visitor(repo, thread_id, token))
+
+
+def visitor_send(repo: Repository, thread_id: str, token: str | None, body: str) -> dict:
+    thread = _chat_for_visitor(repo, thread_id, token)
+    if len(repo.list_chat_messages(thread_id, limit=MAX_CHAT_MESSAGES)) >= MAX_CHAT_MESSAGES:
+        raise Conflict("This chat is full. Please start a new chat or call us.")
+    repo.add_chat_message(thread_id, "visitor", body)
+    # A new message from the visitor reopens a closed chat and flags it for the admin.
+    thread = repo.update_chat_thread(thread_id, {"admin_unread": True, "status": "open"})
+    return _visitor_chat(repo, thread)
+
+
+def _get_thread_or_404(repo: Repository, thread_id: str) -> dict:
+    thread = repo.get_chat_thread(thread_id)
+    if not thread:
+        raise NotFound("Chat not found.")
+    return thread
+
+
+def list_chats(repo: Repository) -> list[dict]:
+    return repo.list_chat_threads()
+
+
+def admin_open_chat(repo: Repository, thread_id: str) -> dict:
+    """Admin reads a chat; this marks it as read."""
+    thread = _get_thread_or_404(repo, thread_id)
+    if thread["admin_unread"]:
+        thread = repo.update_chat_thread(thread_id, {"admin_unread": False})
+    return {"thread": thread, "messages": repo.list_chat_messages(thread_id)}
+
+
+def admin_reply(repo: Repository, thread_id: str, body: str) -> dict:
+    _get_thread_or_404(repo, thread_id)
+    repo.add_chat_message(thread_id, "admin", body)
+    thread = repo.update_chat_thread(thread_id, {"admin_unread": False, "status": "open"})
+    return {"thread": thread, "messages": repo.list_chat_messages(thread_id)}
+
+
+def admin_set_chat_status(repo: Repository, thread_id: str, status: str) -> dict:
+    _get_thread_or_404(repo, thread_id)
+    return repo.update_chat_thread(thread_id, {"status": status})

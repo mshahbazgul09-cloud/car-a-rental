@@ -37,6 +37,8 @@ class MemoryRepository(Repository):
         self._users: dict[str, dict] = {}
         self._bookings: dict[str, dict] = {}
         self._messages: list[dict] = []
+        self._chat_threads: dict[str, dict] = {}
+        self._chat_messages: list[dict] = []
         if seed:
             self._seed()
 
@@ -153,3 +155,42 @@ class MemoryRepository(Repository):
             msg = dict(id=str(uuid.uuid4()), created_at=datetime.now(timezone.utc), **data)
             self._messages.append(msg)
             return dict(msg)
+
+    # ------------------------------------------------------------ live chat
+    def create_chat_thread(self, data):
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            t = dict(id=str(uuid.uuid4()), visitor_name=data["visitor_name"], contact=data.get("contact", ""),
+                     user_id=data.get("user_id"), token_hash=data["token_hash"], status="open", admin_unread=False,
+                     last_message_preview="", last_message_at=now, created_at=now)
+            self._chat_threads[t["id"]] = t
+            return dict(t)
+
+    def get_chat_thread(self, thread_id):
+        with self._lock:
+            t = self._chat_threads.get(thread_id)
+            return dict(t) if t else None
+
+    def list_chat_threads(self):
+        with self._lock:
+            rows = [dict(t) for t in self._chat_threads.values()]
+        return sorted(rows, key=lambda t: t["last_message_at"], reverse=True)
+
+    def update_chat_thread(self, thread_id, fields):
+        with self._lock:
+            t = self._chat_threads[thread_id]
+            t.update(fields)
+            return dict(t)
+
+    def add_chat_message(self, thread_id, sender, body):
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            m = dict(id=str(uuid.uuid4()), thread_id=thread_id, sender=sender, body=body, created_at=now)
+            self._chat_messages.append(m)
+            self._chat_threads[thread_id].update(last_message_preview=body[:120], last_message_at=now)
+            return dict(m)
+
+    def list_chat_messages(self, thread_id, limit=200):
+        with self._lock:
+            rows = [dict(m) for m in self._chat_messages if m["thread_id"] == thread_id]
+        return rows[-limit:]

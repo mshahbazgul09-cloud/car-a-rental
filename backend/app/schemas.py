@@ -100,6 +100,26 @@ class ContactIn(BaseModel):
         return v.validate_message(x)
 
 
+class ChatStartIn(BaseModel):
+    name: str
+    contact: str | None = None
+    message: str
+
+    _name = field_validator("name")(lambda cls, x: v.validate_name(x))
+    _contact = field_validator("contact")(lambda cls, x: v.validate_chat_contact(x))
+    _message = field_validator("message")(lambda cls, x: v.validate_chat_message(x))
+
+
+class ChatMessageIn(BaseModel):
+    body: str
+
+    _body = field_validator("body")(lambda cls, x: v.validate_chat_message(x))
+
+
+class ChatStatusIn(BaseModel):
+    status: Literal["open", "closed"]
+
+
 # ------------------------------------------------------------------ responses
 class UserOut(BaseModel):
     id: str
@@ -153,3 +173,38 @@ class BookingOut(BaseModel):
 class AdminBookingOut(BookingOut):
     phone: str
     user_id: str | None = None
+
+
+class ChatMessageOut(BaseModel):
+    id: str
+    sender: Literal["visitor", "admin"]
+    body: str
+    created_at: datetime
+
+
+class ChatOut(BaseModel):
+    """What the visitor sees: their conversation."""
+    id: str
+    status: str
+    messages: list[ChatMessageOut]
+
+
+class ChatStartOut(ChatOut):
+    token: str  # the visitor keeps this to read and reply to their chat
+
+
+class AdminChatThreadOut(BaseModel):
+    id: str
+    visitor_name: str
+    contact: str
+    user_id: str | None = None
+    status: str
+    admin_unread: bool
+    last_message_preview: str
+    last_message_at: datetime
+    created_at: datetime
+
+
+class AdminChatOut(BaseModel):
+    thread: AdminChatThreadOut
+    messages: list[ChatMessageOut]

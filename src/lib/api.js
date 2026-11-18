@@ -107,3 +107,17 @@ export const adminUpdateBooking = (id, status) =>
 
 // ---------------------------------------------------------------- contact
 export const sendContact = (payload) => request("/api/contact", json("POST", payload));
+
+// ---------------------------------------------------------------- live chat
+// Visitors prove a chat is theirs with the secret token they got when starting it.
+const chatHeaders = (token) => ({ headers: { "X-Chat-Token": token } });
+export const startChat = (payload) => request("/api/chat", json("POST", payload));
+export const getChat = (id, token) =>
+  request(`/api/chat/${encodeURIComponent(id)}`, chatHeaders(token), { auth: false });
+export const sendChatMessage = (id, token, body) =>
+  request(`/api/chat/${encodeURIComponent(id)}/messages`, { ...json("POST", { body }), ...chatHeaders(token) }, { auth: false });
+
+export const adminGetChats = () => request("/api/admin/chats");
+export const adminGetChat = (id) => request(`/api/admin/chats/${encodeURIComponent(id)}`);
+export const adminReplyChat = (id, body) => request(`/api/admin/chats/${encodeURIComponent(id)}/messages`, json("POST", { body }));
+export const adminSetChatStatus = (id, status) => request(`/api/admin/chats/${encodeURIComponent(id)}`, json("PATCH", { status }));

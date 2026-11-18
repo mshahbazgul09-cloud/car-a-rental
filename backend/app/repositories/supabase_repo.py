@@ -11,6 +11,7 @@ from ..errors import Conflict
 from .base import Repository
 
 _DATE_FIELDS = ("pickup_date", "return_date")
+_TIME_FIELDS = ("created_at", "last_message_at")
 _MONEY_FIELDS = ("price_per_day", "total_price")
 
 
@@ -25,8 +26,9 @@ def _row(r: dict | None) -> dict | None:
     for k in _MONEY_FIELDS:
         if r.get(k) is not None:
             r[k] = float(r[k])
-    if isinstance(r.get("created_at"), str):
-        r["created_at"] = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+    for k in _TIME_FIELDS:
+        if isinstance(r.get(k), str):
+            r[k] = datetime.fromisoformat(r[k].replace("Z", "+00:00"))
     return r
 
 
@@ -126,3 +128,35 @@ class SupabaseRepository(Repository):
     # ---- contact form
     def create_contact_message(self, data: dict) -> dict:
         return _first(self.db.table("contact_messages").insert(dict(data)).execute())
+
+    # ---- live chat
+    def create_chat_thread(self, data: dict) -> dict:
+        row = {k: data.get(k) for k in ("visitor_name", "contact", "user_id", "token_hash")}
+        return _first(self.db.table("chat_threads").insert(row).execute())
+
+    def get_chat_thread(self, thread_id: str) -> dict | None:
+        try:
+            return _first(self.db.table("chat_threads").select("*").eq("id", thread_id).limit(1).execute())
+        except APIError as e:
+            if e.code == "22P02":  # not a valid uuid -> simply not found
+                return None
+            raise
+
+    def list_chat_threads(self) -> list[dict]:
+        res = self.db.table("chat_threads").select("*").order("last_message_at", desc=True).limit(200).execute()
+        return [_row(r) for r in res.data]
+
+    def update_chat_thread(self, thread_id: str, fields: dict) -> dict:
+        return _first(self.db.table("chat_threads").update(fields).eq("id", thread_id).execute())
+
+    def add_chat_message(self, thread_id: str, sender: str, body: str) -> dict:
+        # The database trigger keeps the thread's last_message_preview and last_message_at up to date.
+        row = {"thread_id": thread_id, "sender": sender, "body": body}
+        return _first(self.db.table("chat_messages").insert(row).execute())
+
+    def list_chat_messages(self, thread_id: str, limit: int = 200) -> list[dict]:
+        res = (
+            self.db.table("chat_messages").select("*").eq("thread_id", thread_id)
+            .order("created_at", desc=True).limit(limit).execute()
+        )
+        return [_row(r) for r in reversed(res.data)]

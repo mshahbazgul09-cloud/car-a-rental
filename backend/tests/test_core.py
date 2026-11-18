@@ -209,5 +209,52 @@ class Seed(unittest.TestCase):
         self.assertEqual(len(services.list_user_bookings(repo, demo["id"])), 1)
 
 
+class Chat(unittest.TestCase):
+    def setUp(self):
+        self.repo = MemoryRepository(seed=False)
+        self.chat = services.start_chat(self.repo, name="Ali Khan", contact="+1 510 555 0123", message="Is the Audi free?")
+
+    def test_start_flags_admin_and_returns_token(self):
+        self.assertTrue(self.chat["token"])
+        self.assertEqual([m["body"] for m in self.chat["messages"]], ["Is the Audi free?"])
+        thread = services.list_chats(self.repo)[0]
+        self.assertTrue(thread["admin_unread"])
+        self.assertNotIn(self.chat["token"], thread["token_hash"])  # only the hash is stored
+
+    def test_wrong_token_cannot_read_or_send(self):
+        for token in (None, "", "wrong"):
+            with self.assertRaises(NotFound):
+                services.get_visitor_chat(self.repo, self.chat["id"], token)
+            with self.assertRaises(NotFound):
+                services.visitor_send(self.repo, self.chat["id"], token, "hi")
+
+    def test_conversation_both_ways(self):
+        opened = services.admin_open_chat(self.repo, self.chat["id"])
+        self.assertFalse(opened["thread"]["admin_unread"])
+        services.admin_reply(self.repo, self.chat["id"], "Yes, it is free.")
+        seen = services.get_visitor_chat(self.repo, self.chat["id"], self.chat["token"])
+        self.assertEqual([m["sender"] for m in seen["messages"]], ["visitor", "admin"])
+        services.visitor_send(self.repo, self.chat["id"], self.chat["token"], "Great, thanks!")
+        thread = services.list_chats(self.repo)[0]
+        self.assertTrue(thread["admin_unread"])
+        self.assertEqual(thread["last_message_preview"], "Great, thanks!")
+
+    def test_visitor_message_reopens_closed_chat(self):
+        services.admin_set_chat_status(self.repo, self.chat["id"], "closed")
+        out = services.visitor_send(self.repo, self.chat["id"], self.chat["token"], "One more question")
+        self.assertEqual(out["status"], "open")
+
+    def test_unknown_chat(self):
+        with self.assertRaises(NotFound):
+            services.admin_open_chat(self.repo, "nope")
+
+    def test_message_validation(self):
+        self.assertEqual(validators.validate_chat_message("  hi\nthere "), "hi\nthere")
+        for bad in ("", "   ", "x" * 1001, "bad\x00char"):
+            with self.assertRaises(ValueError):
+                validators.validate_chat_message(bad)
+        self.assertEqual(validators.validate_chat_contact(None), "")
+
+
 if __name__ == "__main__":
     unittest.main()
