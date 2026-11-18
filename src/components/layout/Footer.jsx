@@ -25,8 +25,8 @@ export default function Footer() {
         <div>
           <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-white">Contact</p>
           <ul className="space-y-2 text-sm">
-            <li>{site.phone}</li>
-            <li>{site.email}</li>
+            <li><a href={site.phoneHref} className="transition-colors hover:text-brand">{site.phone}</a></li>
+            <li><a href={`mailto:${site.email}`} className="transition-colors hover:text-brand">{site.email}</a></li>
             <li>{site.address}</li>
           </ul>
         </div>

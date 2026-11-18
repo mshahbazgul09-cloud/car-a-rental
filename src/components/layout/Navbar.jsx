@@ -44,8 +44,8 @@ export default function Navbar() {
             <Car size={22} />
           </span>
           <span className="text-xl font-extrabold tracking-tight">
-            {site.name.slice(0, 5)}
-            <span className="text-brand">{site.name.slice(5)}</span>
+            {site.name.split(" ")[0]}{" "}
+            <span className="text-brand">{site.name.split(" ").slice(1).join(" ")}</span>
           </span>
         </Link>
 
@@ -79,7 +79,7 @@ export default function Navbar() {
         {/* Desktop CTA */}
         <div className="hidden items-center gap-6 lg:flex">
           <a
-            href={`tel:${site.phone.replace(/[^+\d]/g, "")}`}
+            href={site.phoneHref}
             className="hidden items-center gap-2 text-sm font-medium text-white/80 transition-colors hover:text-white xl:flex"
           >
             <Phone size={16} className="text-brand" />
@@ -146,7 +146,7 @@ export default function Navbar() {
               )}
               <Button to="/booking" size="lg">Book Now</Button>
               <a
-                href={`tel:${site.phone.replace(/[^+\d]/g, "")}`}
+                href={site.phoneHref}
                 className="flex items-center justify-center gap-2 py-2 text-white/80"
               >
                 <Phone size={18} className="text-brand" />

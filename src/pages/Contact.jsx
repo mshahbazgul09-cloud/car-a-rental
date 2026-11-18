@@ -48,7 +48,7 @@ export default function Contact() {
   };
 
   const info = [
-    { icon: Phone, label: "Phone", value: site.phone, href: `tel:${site.phone.replace(/[^+\d]/g, "")}` },
+    { icon: Phone, label: "Phone", value: site.phone, href: site.phoneHref },
     { icon: Mail, label: "Email", value: site.email, href: `mailto:${site.email}` },
     { icon: MapPin, label: "Address", value: site.address },
   ];

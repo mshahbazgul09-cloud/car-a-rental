@@ -1,9 +1,10 @@
 // Central place for brand details. Change here and the whole site updates.
 export const site = {
-  name: "DriveElite",
+  name: "BI Taxi West Chester",
   tagline: "Premium car rental. Drive the extraordinary.",
-  phone: "+1 (555) 000-0000",
-  email: "hello@example.com",
+  phone: "(513) 771-4633",
+  phoneHref: "tel:+15137714633", // used by every "call" link
+  email: "bohmlimo@hotmail.com",
   address: "123 Main Street, Your City",
   // Your uploaded photos live in public/images (see cars.js for the individual cars).
   heroImage: "/images/hero.png",
