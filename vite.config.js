@@ -6,4 +6,6 @@ import tailwindcss from "@tailwindcss/vite";
 // Theme tokens (colors, fonts) live in src/index.css under @theme.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // In development, /api calls go through the Vite server to FastAPI, so the browser sees one address.
+  server: { proxy: { "/api": "http://127.0.0.1:8000" } },
 });

@@ -1,5 +1,6 @@
 // Talks to the FastAPI backend. Set VITE_API_URL in .env (see .env.example).
-const API_URL = (import.meta.env?.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+// In development with no VITE_API_URL, calls go to /api on the Vite server, which forwards them (vite.config.js).
+const API_URL = (import.meta.env?.VITE_API_URL || (import.meta.env?.DEV ? "" : "http://localhost:8000")).replace(/\/$/, "");
 
 // ---------------------------------------------------------------- login token
 // Stored in localStorage so a page refresh keeps you logged in.
