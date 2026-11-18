@@ -53,8 +53,9 @@ def get_car_or_404(repo: Repository, car_id: str) -> dict:
 
 # ------------------------------------------------------------------ auth
 def register_user(repo: Repository, name: str, email: str, phone: str, password: str) -> dict:
+    role = "admin" if email.strip().lower() in config.ADMIN_EMAILS else "customer"
     return public_user(
-        repo.create_user(dict(name=name, email=email, phone=phone, password_hash=hash_password(password), role="customer"))
+        repo.create_user(dict(name=name, email=email, phone=phone, password_hash=hash_password(password), role=role))
     )
 
 
