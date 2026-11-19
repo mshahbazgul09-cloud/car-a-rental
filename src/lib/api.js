@@ -1,6 +1,6 @@
-// Talks to the FastAPI backend. Set VITE_API_URL in .env (see .env.example).
-// In development with no VITE_API_URL, calls go to /api on the Vite server, which forwards them (vite.config.js).
-const API_URL = (import.meta.env?.VITE_API_URL || (import.meta.env?.DEV ? "" : "http://localhost:8000")).replace(/\/$/, "");
+// Talks to the FastAPI backend. With no VITE_API_URL, calls go to /api on the site's own address:
+// in development the Vite server forwards them (vite.config.js), on Vercel api/index.py answers them.
+const API_URL = (import.meta.env?.VITE_API_URL || "").replace(/\/$/, "");
 
 // ---------------------------------------------------------------- login token
 // Stored in localStorage so a page refresh keeps you logged in.
